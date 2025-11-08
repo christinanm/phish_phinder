@@ -17,7 +17,8 @@ const CONFIG = {
     SHORTENED_LINK: 10,
     DATA_URI: 12,
     HTML_FORM: 10,
-    DOMAIN_MISMATCH: 10
+    DOMAIN_MISMATCH: 10,
+    EMBEDDED_MSG: 8
   },
   
   // Risk classification thresholds
@@ -30,6 +31,15 @@ const CONFIG = {
   SHORTENER_DOMAINS: new Set([
     'bit.ly', 'tinyurl.com', 't.co', 'ow.ly', 'buff.ly',
     'rb.gy', 'is.gd', 't.ly', 'cutt.ly', 'rebrand.ly'
+  ]),
+
+  // Known redirector hosts (SafeLinks, Proofpoint, others) used to try decoding real targets
+  REDIRECTOR_HOSTS: new Set([
+    'nam01.safelinks.protection.outlook.com',
+    'safelinks.protection.outlook.com',
+    'urldefense.proofpoint.com',
+    'urldefense.sharepoint.com',
+    'www.google.com'
   ]),
 
   // Suspicious keywords that may indicate phishing
@@ -109,6 +119,70 @@ function findUrls(text) {
       return url;
     }
   }));
+}
+
+/**
+ * Extracts href targets from an HTML body. This is more reliable than regex on text
+ * because anchors contain the authoritative href (which may differ from displayed text).
+ * It also attempts to decode common redirector patterns (SafeLinks, Proofpoint, etc.)
+ * @param {string} html HTML string
+ * @returns {string[]} Array of resolved target URLs (unique)
+ */
+function extractHrefTargetsFromHtml(html) {
+  if (!html) return [];
+  try {
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+    const anchors = Array.from(doc.querySelectorAll('a[href]'));
+    const results = [];
+
+    // Known redirector hosts and parameter names where the real target is embedded
+    const knownRedirectHosts = new Set([
+      'nam01.safelinks.protection.outlook.com',
+      'safelinks.protection.outlook.com',
+      'urldefense.proofpoint.com',
+      'urldefense.sharepoint.com',
+      'www.google.com'
+    ]);
+
+    const redirectParams = ['url', 'u', 'target', 'q', 'r'];
+
+    anchors.forEach(a => {
+      try {
+        const raw = a.getAttribute('href');
+        if (!raw) return;
+
+        // Resolve relative URLs against a base; using window.location might be wrong in some hosts
+        const resolved = new URL(raw, 'https://localhost');
+
+        // If this is a known redirector, try to extract the embedded target parameter
+        if (knownRedirectHosts.has(resolved.hostname)) {
+          for (const p of redirectParams) {
+            const param = resolved.searchParams.get(p);
+            if (param) {
+              try {
+                const decoded = decodeURIComponent(param);
+                // normalize
+                results.push(new URL(decoded).toString());
+                return; // next anchor
+              } catch (e) {
+                // not a full URL after decode; continue
+              }
+            }
+          }
+          // Fallback: use the redirector URL itself
+          results.push(resolved.toString());
+        } else {
+          results.push(resolved.toString());
+        }
+      } catch (e) {
+        // ignore malformed hrefs
+      }
+    });
+
+    return uniq(results);
+  } catch (e) {
+    return [];
+  }
 }
 
 /**
@@ -201,15 +275,48 @@ function getRegistrableDomain(hostname) {
 }
 
 /**
+ * Attempt to decode known redirector URLs to their embedded target.
+ * If the url is not a known redirector or no embedded target is found, returns the original URL string.
+ * @param {string} urlStr
+ * @returns {string} decoded url string or original
+ */
+function decodeRedirectTarget(urlStr) {
+  try {
+    const u = new URL(urlStr);
+    const host = u.hostname.toLowerCase();
+    if (!CONFIG.REDIRECTOR_HOSTS.has(host)) return urlStr;
+
+    // Common parameter names where real target is stored
+    const params = ['url', 'u', 'target', 'q', 'r'];
+    for (const p of params) {
+      const v = u.searchParams.get(p);
+      if (v) {
+        try {
+          const decoded = decodeURIComponent(v);
+          return new URL(decoded).toString();
+        } catch (e) {
+          // ignore and continue
+        }
+      }
+    }
+    return urlStr;
+  } catch (e) {
+    return urlStr;
+  }
+}
+
+/**
  * Analyzes an email for phishing indicators
  * @param {Object} params Analysis parameters
  * @param {Object} params.from Sender information
  * @param {string} params.subject Email subject
  * @param {string} params.bodyText Email body text
  * @param {Object} params.headers Email headers
+ * @param {string} params.html Email body as HTML (if available)
+ * @param {Array} params.attachments Attachment metadata from the item (if available)
  * @returns {Object} Analysis results with risk score and reasons
  */
-function analyze({ from, subject, bodyText, headers }) {
+function analyze({ from, subject, bodyText, headers, html, attachments }) {
   const reasons = [];
   let score = 0;
 
@@ -265,8 +372,11 @@ function analyze({ from, subject, bodyText, headers }) {
     reasons.push(`Multiple suspicious keywords found: ${foundKeywords.join(', ')}`);
   }
 
-  // URL analysis
-  const urls = findUrls(bodyText || '');
+  // URL analysis -- combine URLs found in the plain text body with anchor hrefs found in HTML if available
+  const textUrls = findUrls(bodyText || '');
+  const htmlUrls = extractHrefTargetsFromHtml(html || '');
+  // Merge and dedupe
+  const urls = uniq(textUrls.concat(htmlUrls));
   if (urls.length > 0) {
     reasons.push(`Found ${urls.length} URL(s) in message`);
   }
@@ -301,7 +411,16 @@ function analyze({ from, subject, bodyText, headers }) {
   }
 
   // 4) Domain alignment check
-  const linkDomains = uniq(urls.map(u => {
+  // First, try to decode any redirector URLs so we evaluate the real targets
+  const decodedTargets = urls.map(u => {
+    try {
+      return decodeRedirectTarget(u);
+    } catch {
+      return u;
+    }
+  });
+
+  const linkDomains = uniq(decodedTargets.map(u => {
     try {
       const hostname = new URL(u).hostname.toLowerCase();
       return getRegistrableDomain(hostname);
@@ -310,15 +429,37 @@ function analyze({ from, subject, bodyText, headers }) {
     }
   }).filter(Boolean));
 
+  // Detect if message looks like a forward/resend: check Resent-* headers or embedded item attachments
+  const isForward = Boolean(headers['resent-from'] || headers['resent-sender']);
+  let hasEmbeddedMsg = false;
+  if (attachments && attachments.length) {
+    for (const att of attachments) {
+      const attType = att.attachmentType || att.type || '';
+      if (attType === 'item') {
+        hasEmbeddedMsg = true;
+        break;
+      }
+    }
+  }
+  if (hasEmbeddedMsg) {
+    score += CONFIG.WEIGHTS.EMBEDDED_MSG;
+    reasons.push('Message contains embedded message attachment (likely forwarded)');
+  }
+
   if (fromDomain && linkDomains.length) {
     const fromRegistrableDomain = getRegistrableDomain(fromDomain);
     const mismatchDomains = linkDomains.filter(d => 
       d !== fromRegistrableDomain && !d.endsWith('.' + fromRegistrableDomain)
     );
-    
+
     if (mismatchDomains.length) {
-      score += CONFIG.WEIGHTS.DOMAIN_MISMATCH;
-      reasons.push(`Links point to different domains: ${mismatchDomains.join(', ')}`);
+      if (isForward || hasEmbeddedMsg) {
+        // If this is a forwarded message, skip the generic domain-mismatch penalty but record it
+        reasons.push(`Message appears forwarded; links point to different domains: ${mismatchDomains.join(', ')}`);
+      } else {
+        score += CONFIG.WEIGHTS.DOMAIN_MISMATCH;
+        reasons.push(`Links point to different domains: ${mismatchDomains.join(', ')}`);
+      }
     }
   }
 
@@ -408,6 +549,24 @@ Office.onReady(async () => {
       console.error('Failed to get email body:', error);
     }
 
+    // Also attempt to get the HTML body so we can extract anchor hrefs reliably
+    let bodyHtml = '';
+    try {
+      bodyHtml = await new Promise((resolve, reject) => {
+        item.body.getAsync('html', result => {
+          if (result.status === Office.AsyncResultStatus.Succeeded) {
+            resolve(result.value);
+          } else {
+            // Not all clients support getting HTML; fall back silently
+            resolve('');
+          }
+        });
+      });
+    } catch (error) {
+      console.error('Failed to get email HTML body:', error);
+      bodyHtml = '';
+    }
+
     // Try to get internet headers if supported
     let headers = {};
     if (item.getAllInternetHeadersAsync) {
@@ -427,8 +586,9 @@ Office.onReady(async () => {
       }
     }
 
-    const subject = item.subject || '';
-    const result = analyze({ from, subject, bodyText, headers });
+  const subject = item.subject || '';
+  const attachments = item.attachments || [];
+  const result = analyze({ from, subject, bodyText, headers, html: bodyHtml, attachments });
     setUI(result);
     
   } catch (error) {
