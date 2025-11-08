@@ -1,21 +1,21 @@
-<!doctype html>
+<!doctype HTML>
 <html>
-<head>
-  <meta charset = "utf-8"/>
-  <title>Phish Phinder</title>
-  <script src = "https://appsforoffice.microsoft.com/lib/1/hosted/office.js"></script>
-  <style>
-    body { font-family: system-ui, Arial, sans-serif; padding: 12px; }
-    .score { font-size: 28px; font-weight: 700; }
-    .risk-low { color: #157347; } .risk-med { color: #b8860b; } .risk-high { color: #b02a37; }
-    .reason { margin: 6px 0; }
-    code { background: #f5f5f7; padding: 2px 4px; border-radius: 4px; }
-  </style>
-</head>
-<body>
-  <h2>Phishing Check</h2>
-  <div id = "summary">Analyzing…</div>
-  <div id = "reasons"></div>
-  <script src = "taskpane.js"></script>
-</body>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Phish Phinder</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <main>
+      <button id="btnCheck" type="button">Check Phishing</button>
+      <p id="status"></p>
+      <div id="summary"></div>
+      <div id="reasons"></div>
+    </main>
+
+    <!-- Load office.js from Microsoft (CSP updated to allow it) -->
+   <script src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js?v=4"></script>
+   <script src="/taskpane.js?v=4" defer></script>
+  </body>
 </html>

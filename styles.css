@@ -1,0 +1,31 @@
+body {
+  font-family: system-ui, Arial, sans-serif;
+  padding: 12px;
+}
+
+.score {
+  font-size: 28px;
+  font-weight: 700;
+}
+
+.risk-low {
+  color: #157347;
+}
+
+.risk-med {
+  color: #b8860b;
+}
+
+.risk-high {
+  color: #b02a37;
+}
+
+.reason {
+  margin: 6px 0;
+}
+
+code {
+  background: #f5f5f7;
+  padding: 2px 4px;
+  border-radius: 4px;
+}

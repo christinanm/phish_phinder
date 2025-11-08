@@ -20,9 +20,22 @@ This file contains step-by-step instructions to sideload the `phish_phinder` add
 openssl genrsa -out key.pem 2048
 
 # Create a self-signed certificate valid for 365 days
-openssl req -new -x509 -key key.pem -out cert.pem -days 365 -subj "/CN=localhost"
+openssl req -new -x509 -days 365 \
+  -key key.pem -out cert.pem \
+  -subj "//CN=localhost"
 
-Place `key.pem` and `cert.pem` in the project root and restart the server. If necessary, import `cert.pem` into your OS/browser trust store so the client accepts the cert.
+Make sure `key.pem` and `cert.pem` are in the project root directory and restart the server. If necessary, import `cert.pem` into your OS/browser trust store so the client accepts the cert.
+
+Adding your Certificate to Windows (11)
+
+- Go to your search bar, and search for "Manage computer certificates". 
+- From Certificates - Local Computer, navigate to: 
+    1. Trusted Root Certification Authorities
+    2. Right-click on Certificates
+    3. All Tasks -> Import
+    4. Select cert.pem file to open Certificate Import Wizard
+    5. Navigate to your cert.pem file, you will get a confirmation window if it was successful
+- 
 
 3) Sideload via Outlook Web (OWA)
 

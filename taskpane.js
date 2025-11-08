@@ -4,6 +4,7 @@
  * Configuration constants for phishing detection
  * These values can be adjusted based on false positive/negative rates
  */
+
 const CONFIG = {
   // Scoring weights for different signals
   WEIGHTS: {

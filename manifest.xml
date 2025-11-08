@@ -4,10 +4,10 @@
            xsi:type = "MailApp">
   <Id>b3a9d2c1-5f6e-4a2b-9c3d-1e2f3a4b5c6d</Id>
   <Version>1.0.0.0</Version>
-  <ProviderName>Company Name</ProviderName>
+  <ProviderName>Cy's Computers</ProviderName>
   <DefaultLocale>en-US</DefaultLocale>
   <DisplayName DefaultValue = "Phish Phinder"/>
-  <Description DefaultValue = "One-click phishing/spam probability check for the current email."/>
+  <Description DefaultValue = "A light-weight Outlook add-in that detects phishing/spam emails."/>
   <IconUrl DefaultValue = "https://localhost:3000/assets/icon-32.png"/>
   <HighResolutionIconUrl DefaultValue = "https://localhost:3000/assets/icon-80.png"/>
   <SupportUrl DefaultValue = "https://localhost:3000/help"/>
