@@ -1,4 +1,4 @@
-# phish_phinder
+# Phish Phinder
 
 ```
   ____  _     _     _      ____  _     _           _           
@@ -13,6 +13,7 @@
 : © ):´;      ¸  {
  `·.¸ `·  ¸.·´\`·¸)
      `\\´´\¸.·´
+
 ```
 
-A light-weight, fast Outlook add-in that detects phishing/spam emails.
+A light-weight Outlook add-in that detects phishing/spam emails.

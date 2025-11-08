@@ -1,31 +1,28 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<OfficeApp xmlns="http://schemas.microsoft.com/office/appforoffice/1.1"
+<?xml version = "1.0" encoding = "UTF-8"?>
+<OfficeApp xmlns = "http://schemas.microsoft.com/office/appforoffice/1.1"
            xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-           xsi:type="MailApp">
-  <Id>0f7b6f1b-1234-4a1a-9b77-0badd00add1n</Id>
+           xsi:type = "MailApp">
+  <Id>b3a9d2c1-5f6e-4a2b-9c3d-1e2f3a4b5c6d</Id>
   <Version>1.0.0.0</Version>
   <ProviderName>Company Name</ProviderName>
   <DefaultLocale>en-US</DefaultLocale>
-  <DisplayName DefaultValue="Phish Phinder"/>
-  <Description DefaultValue="One-click phishing/spam probability check for the current email."/>
-  <IconUrl DefaultValue="https://localhost:3000/assets/icon-32.png"/>
-  <HighResolutionIconUrl DefaultValue="https://localhost:3000/assets/icon-80.png"/>
-  <SupportUrl DefaultValue="https://localhost:3000/help"/>
+  <DisplayName DefaultValue = "Phish Phinder"/>
+  <Description DefaultValue = "One-click phishing/spam probability check for the current email."/>
+  <IconUrl DefaultValue = "https://localhost:3000/assets/icon-32.png"/>
+  <HighResolutionIconUrl DefaultValue = "https://localhost:3000/assets/icon-80.png"/>
+  <SupportUrl DefaultValue = "https://localhost:3000/help"/>
 
   <Requirements>
-    <Sets DefaultMinVersion="1.12">
-      <Set Name="Mailbox"/>
+    <Sets DefaultMinVersion = "1.12">
+      <Set Name = "Mailbox"/>
     </Sets>
   </Requirements>
 
-  <Hosts>
-    <Host Name="Mailbox"/>
-  </Hosts>
-
   <FormSettings>
-    <Form xsi:type="ItemRead">
+    <Form xsi:type = "ItemRead">
       <DesktopSettings>
-        <SourceLocation DefaultValue="https://localhost:3000/taskpane.html"/>
+        <SourceLocation DefaultValue = "https://localhost:3000/taskpane.html"/>
+        <RequestedHeight>350</RequestedHeight>
       </DesktopSettings>
     </Form>
   </FormSettings>
@@ -36,56 +33,61 @@
     <Rule xsi:type="ItemIs" ItemType="Message" FormType="Read"/>
   </Rule>
 
-  <VersionOverrides xmlns="http://schemas.microsoft.com/office/mailappversionoverrides/1.1" xsi:type="VersionOverridesV1_1">
+  <DisableEntityHighlighting>false</DisableEntityHighlighting>
+
+  <VersionOverrides xmlns="http://schemas.microsoft.com/office/mailappversionoverrides"
+                    xmlns:bt="http://schemas.microsoft.com/office/officeappbasictypes/1.0"
+                    xsi:type="VersionOverridesV1_0">
+
     <Requirements>
-      <bt:Sets xmlns:bt="http://schemas.microsoft.com/office/officeappbasictypes/1.0" DefaultMinVersion="1.12">
+      <bt:Sets DefaultMinVersion="1.12">
         <bt:Set Name="Mailbox"/>
       </bt:Sets>
     </Requirements>
 
     <Hosts>
       <Host xsi:type="MailHost">
-        <Runtimes>
-          <Runtime resid="TaskPane.Url" lifetime="long" />
-        </Runtimes>
-
-        <ExtensionPoint xsi:type="MessageReadCommandSurface">
-          <OfficeTab id="TabDefault">
-            <Group id="grpPhishCheck" label="Security">
-              <Control xsi:type="Button" id="btnPhishCheck">
-                <Label resid="btnPhishCheck.Label"/>
-                <Supertip>
-                  <Title resid="btnPhishCheck.Label"/>
-                  <Description resid="btnPhishCheck.Desc"/>
-                </Supertip>
-                <Icon>
-                  <bt:Image size="16" resid="icon16"/>
-                  <bt:Image size="32" resid="icon32"/>
-                  <bt:Image size="80" resid="icon80"/>
-                </Icon>
-                <Action xsi:type="ShowTaskpane">
-                  <SourceLocation resid="TaskPane.Url"/>
-                </Action>
-              </Control>
-            </Group>
-          </OfficeTab>
-        </ExtensionPoint>
+        <DesktopFormFactor>
+          <ExtensionPoint xsi:type="MessageReadCommandSurface">
+            <OfficeTab id="TabDefault">
+              <Group id="grpPhishCheck">
+                <Label resid="grpPhishCheck.Label"/>
+                <Control xsi:type="Button" id="btnPhishCheck">
+                  <Label resid="btnPhishCheck.Label"/>
+                  <Supertip>
+                    <Title resid="btnPhishCheck.Label"/>
+                    <Description resid="btnPhishCheck.Desc"/>
+                  </Supertip>
+                  <Icon>
+                    <bt:Image size="16" resid="icon16"/>
+                    <bt:Image size="32" resid="icon32"/>
+                    <bt:Image size="80" resid="icon80"/>
+                  </Icon>
+                  <Action xsi:type="ShowTaskpane">
+                    <SourceLocation resid="TaskPane.Url"/>
+                  </Action>
+                </Control>
+              </Group>
+            </OfficeTab>
+          </ExtensionPoint>
+        </DesktopFormFactor>
       </Host>
     </Hosts>
 
     <Resources>
-      <bt:Images xmlns:bt="http://schemas.microsoft.com/office/officeappbasictypes/1.0">
+      <bt:Images>
         <bt:Image id="icon16" DefaultValue="https://localhost:3000/assets/icon-16.png"/>
         <bt:Image id="icon32" DefaultValue="https://localhost:3000/assets/icon-32.png"/>
         <bt:Image id="icon80" DefaultValue="https://localhost:3000/assets/icon-80.png"/>
       </bt:Images>
-      <bt:Urls xmlns:bt="http://schemas.microsoft.com/office/officeappbasictypes/1.0">
+      <bt:Urls>
         <bt:Url id="TaskPane.Url" DefaultValue="https://localhost:3000/taskpane.html"/>
       </bt:Urls>
-      <bt:ShortStrings xmlns:bt="http://schemas.microsoft.com/office/officeappbasictypes/1.0">
+      <bt:ShortStrings>
+        <bt:String id="grpPhishCheck.Label" DefaultValue="Security"/>
         <bt:String id="btnPhishCheck.Label" DefaultValue="Check Phishing"/>
       </bt:ShortStrings>
-      <bt:LongStrings xmlns:bt="http://schemas.microsoft.com/office/officeappbasictypes/1.0">
+      <bt:LongStrings>
         <bt:String id="btnPhishCheck.Desc" DefaultValue="Analyze this email for phishing/spam signals."/>
       </bt:LongStrings>
     </Resources>
