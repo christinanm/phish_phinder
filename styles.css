@@ -29,3 +29,59 @@ code {
   padding: 2px 4px;
   border-radius: 4px;
 }
+
+/* Loader styles: green "Matrix"-style binary indicator */
+#status .loader {
+  display: inline-flex;
+  flex-direction: column; /* stack stream above the text */
+  align-items: center;
+  gap: 0.35rem;
+  color: #00ff41; /* neon green */
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, 'Roboto Mono', 'Courier New', monospace;
+  font-weight: 700;
+}
+
+/* denser, longer single-line stream */
+#status .matrix {
+  display: inline-block;
+  gap: 0.02rem;
+  line-height: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  font-size: 0.86rem; /* slightly smaller to allow more bits */
+  letter-spacing: 0.02rem;
+}
+#status .matrix span {
+  display: inline-block;
+  opacity: 0.18;
+  transform: translateY(0);
+  animation: matrixBlink 1.0s linear infinite;
+  color: #00ff41;
+  padding: 0 0.02rem;
+}
+#status .matrix span:nth-child(2n) {
+  animation-delay: 0.05s;
+}
+#status .matrix span:nth-child(3n) {
+  animation-delay: 0.12s;
+}
+#status .matrix span:nth-child(4n) {
+  animation-delay: 0.22s;
+}
+
+@keyframes matrixBlink {
+  0% { opacity: 0.12; transform: translateY(-1px); }
+  50% { opacity: 1; transform: translateY(0); }
+  100% { opacity: 0.12; transform: translateY(1px); }
+}
+
+#status .loader-text {
+  color: #00b21a; /* medium green for text label */
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+
+/* make the binary stream wrap visually on narrow containers while still dense */
+@media (max-width: 360px) {
+  #status .matrix { font-size: 0.78rem; }
+}

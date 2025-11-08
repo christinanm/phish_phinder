@@ -512,12 +512,60 @@ function setUI(result) {
 }
 
 /**
+ * Show a small matrix-style loader in the #status element
+ */
+function showLoader() {
+  const st = document.getElementById('status');
+  if (!st) return;
+  // Clear previous
+  while (st.firstChild) st.removeChild(st.firstChild);
+
+  const loader = document.createElement('span');
+  loader.className = 'loader';
+
+  const matrix = document.createElement('span');
+  matrix.className = 'matrix';
+  // create a longer, denser stream of binary digits for the visual effect
+  const len = 52; // number of bits in the stream
+  let bits = '';
+  for (let i = 0; i < len; i++) {
+    bits += (Math.random() < 0.5 ? '1' : '0');
+  }
+  for (const ch of bits) {
+    const s = document.createElement('span');
+    s.textContent = ch;
+    matrix.appendChild(s);
+  }
+
+  const text = document.createElement('span');
+  text.className = 'loader-text';
+  text.textContent = 'analyzing message...';
+
+  // matrix stream first, then label under it
+  loader.appendChild(matrix);
+  loader.appendChild(text);
+  st.appendChild(loader);
+}
+
+/**
+ * Hide the loader and clear the status area
+ */
+function hideLoader() {
+  const st = document.getElementById('status');
+  if (!st) return;
+  while (st.firstChild) st.removeChild(st.firstChild);
+}
+
+/**
  * Initializes the add-in when Office.js is ready
  */
 Office.onReady(async () => {
   try {
+    // show a loader while we fetch the message and run analysis
+    showLoader();
     const item = Office.context.mailbox.item;
     if (!item) {
+      hideLoader();
       setUI({
         probability: 0,
         reasons: ['Unable to access email item'],
@@ -590,8 +638,10 @@ Office.onReady(async () => {
   const attachments = item.attachments || [];
   const result = analyze({ from, subject, bodyText, headers, html: bodyHtml, attachments });
     setUI(result);
+    hideLoader();
     
   } catch (error) {
+    hideLoader();
     console.error('Add-in initialization failed:', error);
     setUI({
       probability: 0,
