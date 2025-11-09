@@ -9,11 +9,21 @@ const http = require('http');
 const https = require('https');
 const path = require('path');
 const express = require('express');
+const rateLimit = require('express-rate-limit');
 
 const app = express();
 const port = Number(process.env.PORT || 3000);
 
 app.disable('x-powered-by');
+
+// Basic limiter to keep stray requests from hammering the dev server
+const limiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 120,
+  standardHeaders: true,
+  legacyHeaders: false
+});
+app.use(limiter);
 
 // Strong, Outlook-friendly CSP (no inline/eval; allow Outlook to frame us)
 const csp = [
@@ -33,6 +43,10 @@ const csp = [
 
 app.use((req, res, next) => {
   res.setHeader('Content-Security-Policy', csp);
+  if (req.secure || req.headers['x-forwarded-proto'] === 'https') {
+    // Tell clients to stick with HTTPS once they see it
+    res.setHeader('Strict-Transport-Security', 'max-age=63072000; includeSubDomains; preload');
+  }
   res.setHeader('Referrer-Policy', 'no-referrer');
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('X-Frame-Options', 'SAMEORIGIN'); // frame-ancestors is authoritative; this is additive

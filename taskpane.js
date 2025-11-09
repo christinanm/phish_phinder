@@ -1,6 +1,7 @@
 /* global Office */
 // import psl for accurate public suffix handling; esbuild will inline this when bundling
 import psl from 'psl';
+import DOMPurify from 'dompurify';
 // also expose for legacy checks if any other code expects window.psl
 if (typeof globalThis !== 'undefined') globalThis.psl = psl;
 
@@ -53,6 +54,8 @@ const CONFIG = {
     'wire', 'overdue', '2fa', 'reset', 'confirm', 'pay now'
   ]
 };
+
+const RE_DOMAIN = /([a-z0-9.-]+\.[a-z]{2,})/gi; // highlight domains inside reason text
 
 /**
  * Safely creates and appends DOM elements with text content
@@ -533,6 +536,27 @@ function analyze({ from, subject, bodyText, headers, html, attachments }) {
  * Updates the UI with analysis results using safe DOM manipulation
  * @param {Object} result Analysis results to display
  */
+// Format a reason line with sanitized markup so user-controlled strings stay harmless
+function appendReason(parent, reasonText) {
+  const row = document.createElement('div');
+  row.className = 'reason';
+
+  const bullet = document.createElement('span');
+  bullet.className = 'reason-bullet';
+  bullet.textContent = '• ';
+  row.appendChild(bullet);
+
+  const content = document.createElement('span');
+  const highlighted = reasonText.replace(RE_DOMAIN, match => `<code>${match}</code>`);
+  content.innerHTML = DOMPurify.sanitize(highlighted, {
+    ALLOWED_TAGS: ['code', 'strong', 'em'],
+    ALLOWED_ATTR: []
+  });
+  row.appendChild(content);
+
+  parent.appendChild(row);
+}
+
 function setUI(result) {
   const summary = document.getElementById('summary');
   const reasonsEl = document.getElementById('reasons');
@@ -558,12 +582,22 @@ function setUI(result) {
 
   // Add reasons
   if (result.reasons && result.reasons.length) {
-    result.reasons.forEach(reason => {
-      createSafeElement('div', `• ${reason}`, ['reason'], reasonsEl);
-    });
+    result.reasons.forEach(reason => appendReason(reasonsEl, reason));
   } else {
     createSafeElement('em', 'No obvious red flags.', [], reasonsEl);
   }
+}
+
+// Lightweight status helper so we can show success/error after the loader disappears
+function setStatusText(message, variant = 'info') {
+  const st = document.getElementById('status');
+  if (!st) return;
+  while (st.firstChild) st.removeChild(st.firstChild);
+  if (!message) return;
+  const span = document.createElement('span');
+  span.className = `status-${variant}`;
+  span.textContent = message;
+  st.appendChild(span);
 }
 
 /**
@@ -624,6 +658,7 @@ Office.onReady(async () => {
       linkDomains: [],
       fromDomain: ''
     });
+    setStatusText('Open this add-in from Outlook to run the scan.', 'warn');
     return;
   }
   try {
@@ -639,6 +674,7 @@ Office.onReady(async () => {
         linkDomains: [],
         fromDomain: ''
       });
+      setStatusText('No message is selected.', 'warn');
       return;
     }
 
@@ -705,10 +741,14 @@ Office.onReady(async () => {
   const result = analyze({ from, subject, bodyText, headers, html: bodyHtml, attachments });
     setUI(result);
     hideLoader();
+    // show a small completion note so users know the scan finished
+    setStatusText('Analysis complete.', 'ok');
     
   } catch (error) {
     hideLoader();
     console.error('Add-in initialization failed:', error);
+    // let the banner show an error state if something breaks mid-scan
+    setStatusText('Analysis failed. Check console for details.', 'error');
     setUI({
       probability: 0,
       reasons: ['Analysis failed: ' + error.message],
