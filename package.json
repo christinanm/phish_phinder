@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "description": "Phish Phinder Outlook add-in (dev bundle)",
   "private": true,
+  "license": "MIT",
   "scripts": {
     "build": "esbuild taskpane.js --bundle --minify --outfile=dist/taskpane.bundle.js --platform=browser --format=iife --global-name=PhishPhinder",
     "build:watch": "esbuild taskpane.js --bundle --outfile=dist/taskpane.bundle.js --platform=browser --format=iife --watch"

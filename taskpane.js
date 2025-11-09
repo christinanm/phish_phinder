@@ -594,7 +594,7 @@ function showLoader() {
 
   const text = document.createElement('span');
   text.className = 'loader-text';
-  text.textContent = 'analyzing message...';
+  text.textContent = 'analyzing email...';
 
   // matrix stream first, then label under it
   loader.appendChild(matrix);
