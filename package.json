@@ -9,8 +9,6 @@
     "build:watch": "esbuild taskpane.js --bundle --outfile=dist/taskpane.bundle.js --platform=browser --format=iife --watch"
   },
   "dependencies": {
-    "dompurify": "^3.3.0",
-    "express-rate-limit": "^8.2.1",
     "psl": "^1.15.0"
   },
   "devDependencies": {

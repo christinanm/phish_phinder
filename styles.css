@@ -24,11 +24,6 @@ body {
   margin: 6px 0;
 }
 
-.reason-bullet {
-  font-weight: 600;
-  margin-right: 4px;
-}
-
 code {
   background: #f5f5f7;
   padding: 2px 4px;
@@ -84,21 +79,6 @@ code {
   color: #00b21a; /* medium green for text label */
   font-weight: 600;
   font-size: 0.95rem;
-}
-
-#status .status-ok {
-  color: #157347;
-  font-weight: 600;
-}
-
-#status .status-warn {
-  color: #b8860b;
-  font-weight: 600;
-}
-
-#status .status-error {
-  color: #b02a37;
-  font-weight: 600;
 }
 
 /* make the binary stream wrap visually on narrow containers while still dense */
