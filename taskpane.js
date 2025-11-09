@@ -1,4 +1,8 @@
 /* global Office */
+// import psl for accurate public suffix handling; esbuild will inline this when bundling
+import psl from 'psl';
+// also expose for legacy checks if any other code expects window.psl
+if (typeof globalThis !== 'undefined') globalThis.psl = psl;
 
 /**
  * Configuration constants for phishing detection
@@ -14,11 +18,12 @@ const CONFIG = {
     DISPLAY_NAME_SPOOF: 10,
     MALFORMED_DOMAIN: 10,
     KEYWORD_MULTIPLE: 12,
-    SHORTENED_LINK: 10,
+    SHORTENED_LINK: 18,
     DATA_URI: 12,
     HTML_FORM: 10,
-    DOMAIN_MISMATCH: 10,
-    EMBEDDED_MSG: 8
+    DOMAIN_MISMATCH: 30,
+    EMBEDDED_MSG: 18,
+    ANCHOR_MISMATCH: 16
   },
   
   // Risk classification thresholds
@@ -154,32 +159,48 @@ function extractHrefTargetsFromHtml(html) {
         // Resolve relative URLs against a base; using window.location might be wrong in some hosts
         const resolved = new URL(raw, 'https://localhost');
 
+        // capture visible text for anchor-text mismatch detection
+        const shown = (a.textContent || '').trim();
+
+        // Default object for this anchor
+        const anchorObj = { href: resolved.toString(), shownText: shown, isRedirector: false };
+
         // If this is a known redirector, try to extract the embedded target parameter
         if (knownRedirectHosts.has(resolved.hostname)) {
+          anchorObj.isRedirector = true;
           for (const p of redirectParams) {
             const param = resolved.searchParams.get(p);
             if (param) {
               try {
                 const decoded = decodeURIComponent(param);
                 // normalize
-                results.push(new URL(decoded).toString());
-                return; // next anchor
+                anchorObj.href = new URL(decoded).toString();
+                break; // done with this anchor
               } catch (e) {
                 // not a full URL after decode; continue
               }
             }
           }
-          // Fallback: use the redirector URL itself
-          results.push(resolved.toString());
-        } else {
-          results.push(resolved.toString());
         }
+
+        results.push(anchorObj);
       } catch (e) {
         // ignore malformed hrefs
       }
     });
 
-    return uniq(results);
+    // dedupe by href
+    const seen = new Set();
+    const out = [];
+    results.forEach(r => {
+      const h = r && r.href;
+      if (!h) return;
+      if (!seen.has(h)) {
+        seen.add(h);
+        out.push(r);
+      }
+    });
+    return out;
   } catch (e) {
     return [];
   }
@@ -266,11 +287,32 @@ function parseAuthResults(headers) {
  */
 function getRegistrableDomain(hostname) {
   if (!hostname) return '';
-  
-  // Basic implementation - split and take last two parts
-  // TODO: Replace with proper public suffix list handling
+  // Try to use a PSL implementation if available (e.g., window.psl or global psl)
+  try {
+    const pslImpl = (typeof psl !== 'undefined') ? psl : (typeof window !== 'undefined' && window.psl ? window.psl : null);
+    if (pslImpl && typeof pslImpl.get === 'function') {
+      const reg = pslImpl.get(hostname);
+      if (reg) return reg;
+    }
+  } catch (e) {
+    // fall back to heuristic below
+  }
+
+  // Fallback: basic public suffix heuristic with a small curated list of multi-label TLDs
+  const multiSuffixes = ['co.uk', 'org.uk', 'gov.uk', 'ac.uk', 'com.au', 'net.au', 'co.nz', 'co.jp', 'appspot.com'];
   const parts = hostname.split('.');
   if (parts.length <= 2) return hostname;
+
+  const host = hostname.toLowerCase();
+  for (const suf of multiSuffixes) {
+    if (host.endsWith('.' + suf) || host === suf) {
+      // registrable domain for a multi-label suffix is last (suffixParts + 1) labels
+      const suffixParts = suf.split('.').length;
+      return parts.slice(-(suffixParts + 1)).join('.');
+    }
+  }
+
+  // Default: last two labels
   return parts.slice(-2).join('.');
 }
 
@@ -373,10 +415,25 @@ function analyze({ from, subject, bodyText, headers, html, attachments }) {
   }
 
   // URL analysis -- combine URLs found in the plain text body with anchor hrefs found in HTML if available
-  const textUrls = findUrls(bodyText || '');
-  const htmlUrls = extractHrefTargetsFromHtml(html || '');
-  // Merge and dedupe
-  const urls = uniq(textUrls.concat(htmlUrls));
+  const textUrls = (findUrls(bodyText || '')).map(u => ({ href: u, shownText: '', isRedirector: false, fromText: true }));
+  const htmlAnchors = extractHrefTargetsFromHtml(html || '');
+  // Merge and dedupe by href
+  const combined = [];
+  const seen = new Set();
+  textUrls.concat(htmlAnchors).forEach(a => {
+    try {
+      const href = a.href || a;
+      if (!href) return;
+      if (!seen.has(href)) {
+        seen.add(href);
+        // ensure object shape
+        combined.push({ href: href, shownText: a.shownText || '', isRedirector: !!a.isRedirector, fromText: !!a.fromText });
+      }
+    } catch (e) {
+      // ignore
+    }
+  });
+  const urls = combined;
   if (urls.length > 0) {
     reasons.push(`Found ${urls.length} URL(s) in message`);
   }
@@ -384,20 +441,20 @@ function analyze({ from, subject, bodyText, headers, html, attachments }) {
   // Check for URL shorteners
   const shortened = urls.filter(u => {
     try {
-      const hostname = new URL(u).hostname.toLowerCase();
+      const hostname = new URL(u.href).hostname.toLowerCase();
       return CONFIG.SHORTENER_DOMAINS.has(hostname);
     } catch {
       return false;
     }
   });
-  
+
   if (shortened.length) {
     score += CONFIG.WEIGHTS.SHORTENED_LINK;
     reasons.push(`Found ${shortened.length} shortened URL(s)`);
   }
 
   // Check for data: URIs
-  const dataUris = urls.filter(u => u.toLowerCase().startsWith('data:'));
+  const dataUris = urls.filter(u => (u.href || '').toLowerCase().startsWith('data:'));
   if (dataUris.length) {
     score += CONFIG.WEIGHTS.DATA_URI;
     reasons.push('Found embedded data: URI(s)');
@@ -414,9 +471,9 @@ function analyze({ from, subject, bodyText, headers, html, attachments }) {
   // First, try to decode any redirector URLs so we evaluate the real targets
   const decodedTargets = urls.map(u => {
     try {
-      return decodeRedirectTarget(u);
+      return decodeRedirectTarget(u.href || u);
     } catch {
-      return u;
+      return u.href || u;
     }
   });
 
@@ -428,6 +485,29 @@ function analyze({ from, subject, bodyText, headers, html, attachments }) {
       return '';
     }
   }).filter(Boolean));
+
+  // Anchor-text vs href mismatch detection
+  try {
+    urls.forEach(a => {
+      try {
+        if (!a.shownText) return;
+        const shownMatch = a.shownText.match(/([a-z0-9.-]+\.[a-z]{2,})/i);
+        if (!shownMatch) return;
+        const shownDomain = shownMatch[1].toLowerCase();
+        const hrefHost = new URL(a.href).hostname.toLowerCase();
+        const shownReg = getRegistrableDomain(shownDomain);
+        const hrefReg = getRegistrableDomain(hrefHost);
+        if (shownReg && hrefReg && shownReg !== hrefReg && !hrefReg.endsWith('.' + shownReg)) {
+          score += CONFIG.WEIGHTS.ANCHOR_MISMATCH;
+          reasons.push(`Anchor text/domain mismatch: shown "${shownDomain}" -> href ${hrefHost}`);
+        }
+      } catch (e) {
+        // ignore per-anchor errors
+      }
+    });
+  } catch (e) {
+    // ignore
+  }
 
   // Detect if message looks like a forward/resend: check Resent-* headers or embedded item attachments
   const isForward = Boolean(headers['resent-from'] || headers['resent-sender']);
@@ -453,13 +533,27 @@ function analyze({ from, subject, bodyText, headers, html, attachments }) {
     );
 
     if (mismatchDomains.length) {
+      // Apply a penalty; if forwarded, reduce it but still penalize
+      let penalty = CONFIG.WEIGHTS.DOMAIN_MISMATCH;
       if (isForward || hasEmbeddedMsg) {
-        // If this is a forwarded message, skip the generic domain-mismatch penalty but record it
-        reasons.push(`Message appears forwarded; links point to different domains: ${mismatchDomains.join(', ')}`);
+        penalty = Math.round(penalty * 0.6); // still penalize forwarded messages moderately
+        reasons.push(`Message appears forwarded; links point to different domains: ${mismatchDomains.join(', ')} (reduced penalty applied)`);
       } else {
-        score += CONFIG.WEIGHTS.DOMAIN_MISMATCH;
         reasons.push(`Links point to different domains: ${mismatchDomains.join(', ')}`);
       }
+      score += penalty;
+    }
+
+    // Extra penalty if any links were redirectors (we detected redirector hosts)
+    try {
+      const redirectorCount = urls.filter(u => !!u.isRedirector).length;
+      if (redirectorCount) {
+        const extra = Math.round(CONFIG.WEIGHTS.SHORTENED_LINK * 0.7);
+        score += extra;
+        reasons.push(`Detected ${redirectorCount} redirector-style link(s)`);
+      }
+    } catch (e) {
+      // ignore
     }
   }
 
@@ -560,6 +654,17 @@ function hideLoader() {
  * Initializes the add-in when Office.js is ready
  */
 Office.onReady(async () => {
+  if (!Office.context || !Office.context.mailbox) {
+    console.warn('Office context not available — are you running outside Outlook?');
+    setUI({
+      probability: 0,
+      reasons: ['Open this add-in from Outlook so it can analyze the current message.'],
+      riskClass: 'risk-low',
+      linkDomains: [],
+      fromDomain: ''
+    });
+    return;
+  }
   try {
     // show a loader while we fetch the message and run analysis
     showLoader();

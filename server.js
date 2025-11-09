@@ -23,13 +23,14 @@ const csp = [
   // allow Office + ASP.NET CDN and eval (needed by MicrosoftAjax)
   "script-src 'self' https://appsforoffice.microsoft.com https://ajax.aspnetcdn.com 'unsafe-eval'",
   "script-src-elem 'self' https://appsforoffice.microsoft.com https://ajax.aspnetcdn.com 'unsafe-eval'",
-  "style-src 'self'",          
+  "style-src 'self' 'unsafe-inline'",          
   "img-src 'self' data:",
   "font-src 'self' data:",
-  "connect-src 'self'",
+  "connect-src 'self' https://telemetryservice.firstpartyapps.oaspapps.com",
   "object-src 'none'",
   "base-uri 'self'",
-  "frame-ancestors 'self' https://outlook.office.com https://*.office.com https://*.office365.com https://outlook.live.com"
+  "frame-ancestors 'self' https://outlook.office.com https://*.office.com https://*.office365.com https://outlook.live.com",
+  "frame-src 'self' https://outlook.office.com https://*.office.com https://*.office365.com https://outlook.live.com https://telemetryservice.firstpartyapps.oaspapps.com"
 ].join('; ');
 
 app.use((req, res, next) => {

@@ -84,8 +84,8 @@
         <bt:Url id="TaskPane.Url" DefaultValue="https://localhost:3000/taskpane.html"/>
       </bt:Urls>
       <bt:ShortStrings>
-        <bt:String id="grpPhishCheck.Label" DefaultValue="Security"/>
-        <bt:String id="btnPhishCheck.Label" DefaultValue="Phish Phinder/>
+  <bt:String id="grpPhishCheck.Label" DefaultValue="Security"/>
+  <bt:String id="btnPhishCheck.Label" DefaultValue="Phish Phinder"/>
       </bt:ShortStrings>
       <bt:LongStrings>
         <bt:String id="btnPhishCheck.Desc" DefaultValue="Analyze this email for phishing/spam signals."/>
