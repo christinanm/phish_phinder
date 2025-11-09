@@ -1,7 +1,7 @@
 <h1 align="center">Phish Phinder</h1>
 
 <div align="center">
-<pre>
+<pre style="display:inline-block;text-align:left;">
   ____  _     _     _       ____  _     _           _           
  |  _ \| |__ (_)___| |__   |  _ \| |__ (_)_ __   __| | ___ _ __ 
  | |_) | '_ \| / __| '_ \  | |_) | '_ \| | '_ \ / _` |/ _ \ '__|
