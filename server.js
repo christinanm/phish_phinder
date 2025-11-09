@@ -1,11 +1,9 @@
-// Minimal dev server for serving the add-in files
+// Minimal dev server for Outlook add-in files (OWA/CSP safe)
 // Usage:
-// 1) Generate certs (if using HTTPS) and place key.pem and cert.pem in the project root.
-//    See README for OpenSSL commands.
-// 2) Run: node server.js
-//    By default this starts HTTPS on port 3000 if certs are present, otherwise HTTP on port 3000.
-
-// Minimal dev server for Outlook add-in files (OWA/CSP safe) using Office dev certs
+// 1) Install trusted Office dev certs (recommended): npx office-addin-dev-certs install
+//    The generated files are discovered automatically from %USERPROFILE%/.office-addin-dev-certs.
+//    Alternatively, place key.pem and cert.pem in the project root.
+// 2) Run: node server.js (HTTPS on port 3000 if certs are found, otherwise HTTP).
 const fs = require('fs');
 const http = require('http');
 const https = require('https');

@@ -140,17 +140,6 @@ function extractHrefTargetsFromHtml(html) {
     const anchors = Array.from(doc.querySelectorAll('a[href]'));
     const results = [];
 
-    // Known redirector hosts and parameter names where the real target is embedded
-    const knownRedirectHosts = new Set([
-      'nam01.safelinks.protection.outlook.com',
-      'safelinks.protection.outlook.com',
-      'urldefense.proofpoint.com',
-      'urldefense.sharepoint.com',
-      'www.google.com'
-    ]);
-
-    const redirectParams = ['url', 'u', 'target', 'q', 'r'];
-
     anchors.forEach(a => {
       try {
         const raw = a.getAttribute('href');
@@ -163,24 +152,15 @@ function extractHrefTargetsFromHtml(html) {
         const shown = (a.textContent || '').trim();
 
         // Default object for this anchor
-        const anchorObj = { href: resolved.toString(), shownText: shown, isRedirector: false };
+        const lowerHost = resolved.hostname.toLowerCase();
+        const anchorObj = {
+          href: resolved.toString(),
+          shownText: shown,
+          isRedirector: CONFIG.REDIRECTOR_HOSTS.has(lowerHost)
+        };
 
-        // If this is a known redirector, try to extract the embedded target parameter
-        if (knownRedirectHosts.has(resolved.hostname)) {
-          anchorObj.isRedirector = true;
-          for (const p of redirectParams) {
-            const param = resolved.searchParams.get(p);
-            if (param) {
-              try {
-                const decoded = decodeURIComponent(param);
-                // normalize
-                anchorObj.href = new URL(decoded).toString();
-                break; // done with this anchor
-              } catch (e) {
-                // not a full URL after decode; continue
-              }
-            }
-          }
+        if (anchorObj.isRedirector) {
+          anchorObj.href = decodeRedirectTarget(resolved.toString());
         }
 
         results.push(anchorObj);
@@ -287,33 +267,14 @@ function parseAuthResults(headers) {
  */
 function getRegistrableDomain(hostname) {
   if (!hostname) return '';
-  // Try to use a PSL implementation if available (e.g., window.psl or global psl)
   try {
-    const pslImpl = (typeof psl !== 'undefined') ? psl : (typeof window !== 'undefined' && window.psl ? window.psl : null);
-    if (pslImpl && typeof pslImpl.get === 'function') {
-      const reg = pslImpl.get(hostname);
-      if (reg) return reg;
-    }
+    const reg = psl.get(hostname);
+    if (reg) return reg;
   } catch (e) {
-    // fall back to heuristic below
+    // ignore and fall through to hostname
   }
 
-  // Fallback: basic public suffix heuristic with a small curated list of multi-label TLDs
-  const multiSuffixes = ['co.uk', 'org.uk', 'gov.uk', 'ac.uk', 'com.au', 'net.au', 'co.nz', 'co.jp', 'appspot.com'];
-  const parts = hostname.split('.');
-  if (parts.length <= 2) return hostname;
-
-  const host = hostname.toLowerCase();
-  for (const suf of multiSuffixes) {
-    if (host.endsWith('.' + suf) || host === suf) {
-      // registrable domain for a multi-label suffix is last (suffixParts + 1) labels
-      const suffixParts = suf.split('.').length;
-      return parts.slice(-(suffixParts + 1)).join('.');
-    }
-  }
-
-  // Default: last two labels
-  return parts.slice(-2).join('.');
+  return hostname;
 }
 
 /**
