@@ -1,3 +1,10 @@
+@font-face {
+  font-family: 'OrbitronLocal';
+  src: url('/assets/fonts/Orbitron-VariableFont_wght.woff2') format('woff2');
+  font-weight: 400 700;
+  font-display: swap;
+}
+
 body {
   font-family: system-ui, Arial, sans-serif;
   padding: 12px;
@@ -6,6 +13,9 @@ body {
 .score {
   font-size: 28px;
   font-weight: 700;
+  font-family: 'OrbitronLocal', 'DS-Digital', 'Digital-7', 'Roboto Mono', monospace;
+  letter-spacing: 0.06em;
+  margin-bottom: 10px;
 }
 
 .risk-low {
@@ -22,6 +32,7 @@ body {
 
 .reason {
   margin: 6px 0;
+  margin-top: 12px;
 }
 
 code {
